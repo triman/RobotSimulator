@@ -10,6 +10,7 @@ class Simulation(val robots: List[Robot], val environment: List[NamedArea]) {
 
   private var currentTime = 0.0
 
+  // each time the clock ticks, we recompute the robot's position
   time.attend(computeRobotPositions _)
 
   def computeRobotPositions(time: Double): Unit = {
