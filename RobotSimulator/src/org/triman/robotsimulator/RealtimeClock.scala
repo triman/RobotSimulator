@@ -39,8 +39,6 @@ trait RealtimeClock extends IClock {
     }
   }
   
-  
-  
   override def stop() : Unit = {
     this.synchronized{
     	hasToRun = false
@@ -48,6 +46,7 @@ trait RealtimeClock extends IClock {
     }
     
   }
+  
   
   
 }

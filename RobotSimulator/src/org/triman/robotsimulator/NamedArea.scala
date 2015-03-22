@@ -1,5 +1,6 @@
 package org.triman.robotsimulator
 
-import java.awt.geom.Area
+import java.awt.Shape
 
-class NamedArea (val name : String, val area : Area)
+
+class NamedArea (val name : String, val shape : Shape)

@@ -1,5 +1,5 @@
 package org.triman.robotsimulator
 
-import java.awt.geom.Area
+import java.awt.Shape
 
-class SensorDefinition(val name : String, val area : Area, val layers : List[String])
+class SensorDefinition(val name : String, val shape : Shape, val layers : List[String])

@@ -34,14 +34,14 @@ class Simulation(val robots: List[Robot], val environment: List[NamedArea]) {
 
     // transform all sensors and apply them to the objects
     robot.sensorModel.map(s => {	// transform sensors
-    					val t = new Area(s.area)
+    					val t = new Area(s.shape)
     					t.transform(transform)
     					(s.name, s.layers,t)
     				 })
     				 .map(s => s._1 -> environment
         						.filter(a => s._2.isEmpty || s._2.contains(a.name))
         						.exists(a => {
-        						  val i = new Area(a.area);
+        						  val i = new Area(a.shape);
         						  i.intersect(s._3)
         						  i.isEmpty
         						})) toMap
