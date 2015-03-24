@@ -46,7 +46,7 @@ object MainWindow extends Frame {
 
 	private val container = new BorderPanel
 	contents = container
-	title = "Roomba simulator"
+	title = "Robot simulator"
 	peer.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
 	val canvas = new Canvas
 
@@ -75,7 +75,7 @@ object MainWindow extends Frame {
           {
           	val viewModel = new SimulationViewModel()
           	val window = new SimulationDefinitionWindow(viewModel)
-          
+          	window.showDialog
           }
          })
 			contents += new MenuItem(new Action("Load room...")

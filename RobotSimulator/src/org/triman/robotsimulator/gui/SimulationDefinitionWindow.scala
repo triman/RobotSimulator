@@ -1,23 +1,47 @@
 package org.triman.robotsimulator.gui
 
 import org.triman.robotsimulator.viewmodels.SimulationViewModel
-import scala.swing.Frame
-import javax.swing.JDialog
+import scala.swing.BoxPanel
+import scala.swing.Orientation
+import scala.swing.Label
+import javax.swing.JOptionPane
+import org.triman.window.FileInput
+import scala.swing.Swing
+import java.awt.Dimension
+import scala.swing.ScrollPane
 
-class SimulationDefinitionWindow(val viewModel : SimulationViewModel) extends Frame {
+
+class SimulationDefinitionWindow(val viewModel : SimulationViewModel) extends ScrollPane {
 	def initComponents() {
-		title = "Simulation definition"
-		// environment
-		// robots
-		// dialog buttons
+	  verticalScrollBarPolicy = ScrollPane.BarPolicy.AsNeeded
+	  horizontalScrollBarPolicy = ScrollPane.BarPolicy.Never
+	  
+	  val panel = new BoxPanel(Orientation.Vertical)
+	  
+	  
+	  // environment
+	  panel.contents += new FileInput()
+	  panel.contents += new FileInput()
+	  panel.contents += new FileInput()
+	  panel.contents += new FileInput()
+	  panel.contents += new FileInput()
+	  panel.contents += new FileInput()
+	  // robots
+	  
+	  // glue
+	  val glue = Swing.VGlue
+	  glue.preferredSize = new Dimension(0, Int.MaxValue)
+	  //panel.contents += glue
+	  preferredSize = new Dimension(1000, 0)
+	  contents = panel
+	  
 	}
 	
 	initComponents()
 	
 	def showDialog(){
-		val dialog = new JDialog(this.peer, "Simulation definition")
-    dialog.setBounds(350, 350, 200, 200)
-    dialog.setVisible(true)
+		JOptionPane.showOptionDialog(MainWindow.peer, this.peer, "New simulation", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, Array("Create", "Cancel") , null);
+		
 	}
 	
 }
