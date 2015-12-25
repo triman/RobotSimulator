@@ -14,6 +14,7 @@ import scala.xml.NodeSeq.seqToNodeSeq
 import scala.xml.XML
 import org.apache.batik.parser.AWTPathProducer
 import org.triman.xml.NonValidatingSAXParserFactory
+import org.triman.xml.XmlUtils._
 import java.awt.geom.Path2D
 
 class SVGGroupProperties(val opacity: Int, val fillOpacity: Int, val strokeOpacity: Int, val transform: AffineTransform)
@@ -42,6 +43,10 @@ object SVGUtils {
 				else {
 					val cs = new CompositeDrawableShape()
 					cs.shapes ++= drawables
+					val idAttribute = tag.attribute("id")
+					if(idAttribute.isDefined){
+						cs.id = idAttribute.get.text
+					}
 					cs
 				}
 			}
@@ -223,7 +228,10 @@ object SVGUtils {
 				}
 			}
 			if (at != null) {
-				return new TransformableDrawable(drawable, at)
+				var d = new TransformableDrawable(drawable, at)
+				d.id = drawable.id
+				d.id = ""
+				return d
 			}
 		}
 		drawable
@@ -285,13 +293,5 @@ object SVGUtils {
 		svg2Drawable(elems.head)
 	}
 
-	/**
-	 * Reads an XML file
-	 * @param filePath Path to the file which should be read.
-	 */
-	def readXML(filePath: String) = {
-		XML.withSAXParser(NonValidatingSAXParserFactory.getInstance)
-			.loadString(Source.fromFile(
-				filePath).getLines().reduce(_ + _))
-	}
+
 }

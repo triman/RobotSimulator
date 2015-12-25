@@ -12,7 +12,7 @@ class RobotListener(val robot : Robot, val canvas : Canvas, robotDrawable : Draw
 	
 	private val transformedRobot = new TransformableDrawable(robotDrawable, currentTransform)
 	// create listeners
-	robot.position.attend(_ => onRoombaPositionChange)
+	robot.position.attend(_ => onRobotPositionChange)
 	// ToDo: cet sensor state event simulatedRoomba.onSensorsStateComputed += onRoombaSensorsStateComputed
 	
 	// get the status display
@@ -23,8 +23,8 @@ class RobotListener(val robot : Robot, val canvas : Canvas, robotDrawable : Draw
 		// ToDo: current state for sensors canvas.shapes += roombaStatus
 	}
 	
-	def onRoombaPositionChange(){
-		// move the roomba
+	def onRobotPositionChange(){
+		// move the robot
 		val position = robot.position()
 		
 		currentTransform.setToIdentity()

@@ -10,5 +10,17 @@ class Toolbar extends Component with Container.Wrapper {
 	def add( action: Action ) { peer.add( action.peer )}
   
   def add( component: Component ) { peer.add( component.peer )}
+  
+  def remove( component: Component ) {
+  	peer.remove(component.peer)
+  	peer.revalidate	
+  }
 	
+  def clear(){
+  	peer.removeAll
+  	peer.revalidate
+  }
+  
+  def orientation = peer.getOrientation
+  def orientation_= (o : Int) : Unit = peer.setOrientation(o) 
 }

@@ -23,6 +23,12 @@ abstract class Notifier[T,U](t0: T) {
       listeners.foreach(_ ! (id,data))
     }
   }
+  def isAttending(f : T =>Unit) = {
+  	callbacks contains f
+  }
+  def isAttending(oc : OCUT) = {
+  	listeners contains oc
+  }
   def attend(f: T=>Unit) { callbacks ::= f }
   def attend(oc: OCUT) { listeners ::= oc }
   def ignore(f: T=>Unit) { callbacks = callbacks.filter(_ != f) }

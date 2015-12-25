@@ -4,6 +4,8 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.awt.geom.AffineTransform
 import java.awt.geom.Area
+import scala.util.Success
+import scala.util.Failure
 
 class Simulation(val robots: List[Robot], val environment: List[NamedArea]) {
   self: IClock with IPositionProvider =>
@@ -21,8 +23,16 @@ class Simulation(val robots: List[Robot], val environment: List[NamedArea]) {
     computeSensors
   }
 
-  def computeSensors(): List[Future[Map[String, AnyVal]]] = {
-    robots.map(r => computeSensors(r))
+  def computeSensors(): Unit = {
+    robots.map(r => computeSensors(r).onComplete({
+		    case Success(res) => {
+		      r.sensors.update(res)
+		    }
+		    case Failure(res) => {
+		    	println(r.name + " sensor computation failed")
+		    }
+		  })
+	  )
   }
 
   private def computeSensors(robot: Robot): Future[Map[String, AnyVal]] = Future {
@@ -31,19 +41,21 @@ class Simulation(val robots: List[Robot], val environment: List[NamedArea]) {
     // set to represent the roomba position
     transform.translate(robot.position().x, -robot.position().y)	// negative since the vertical axis is pointing downward
     transform.rotate(-robot.position().orientation)
-
+   	val bounds = robot.definition.drawable.shape.getBounds()
+    transform.translate(- bounds.width/2, - bounds.height/2)
+    
     // transform all sensors and apply them to the objects
-    robot.sensorModel.map(s => {	// transform sensors
-    					val t = new Area(s.shape)
+    robot.definition.sensors.map(s => {	// transform sensors
+    					val t = new Area(s.drawable.shape)
     					t.transform(transform)
-    					(s.name, s.layers,t)
+    					(s.name, s.layers,t, s.isInverted)
     				 })
     				 .map(s => s._1 -> environment
-        						.filter(a => s._2.isEmpty || s._2.contains(a.name))
+        						.filter(a => s._2.isEmpty || s._2.map(s => s.toLowerCase()).contains(a.name.toLowerCase()))
         						.exists(a => {
         						  val i = new Area(a.shape);
         						  i.intersect(s._3)
-        						  i.isEmpty
+        						  i.isEmpty ^ s._4
         						})) toMap
   }
 }

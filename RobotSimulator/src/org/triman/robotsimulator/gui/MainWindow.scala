@@ -24,6 +24,25 @@ import javax.swing.ImageIcon
 import javax.swing.BorderFactory
 import org.triman.robotsimulator.viewmodels.SimulationViewModel
 import scala.swing.Dialog
+import org.triman.robotsimulator.factories.SVGFactory
+import java.net.URI
+import java.net.URL
+import org.triman.xml.EmbeddedXml
+import java.io.File
+import scala.swing.Separator
+import javax.swing.JToolBar
+import javax.swing.SwingConstants
+import scala.collection.mutable.HashMap
+import org.triman.robotsimulator.Robot
+import org.triman.robotsimulator.Position
+import org.triman.robotsimulator.SensorDefinition
+import org.triman.window.events.CanvasSelectionDragged
+import scala.swing.ToggleButton
+import scala.swing.Panel
+import scala.swing.FlowPanel
+import scala.swing.event.MousePressed
+import javax.swing.border.EmptyBorder
+import java.awt.Insets
 /**
  * http://www.jasperpotts.com/blog/2007/07/svg-shape-2-java2d-code/
  */
@@ -57,58 +76,208 @@ object MainWindow extends Frame {
 
 	val statusBar = new StatusBar
 	container.layout(statusBar) = BorderPanel.Position.South
-
+	val statusLabel = new Label("")
 	val zoomLevelLabel = new Label("zoom: " + (canvas.zoom() * 100).round.toString() + "%")
 	zoomLevelLabel.preferredSize = new Dimension(70, 15)
 	zoomLevelLabel.horizontalAlignment = Alignment.Left
 	canvas.zoom.attend(z => { zoomLevelLabel.text = "zoom: " + (z * 100).round.toString() + "%" })
+	statusBar.add(statusLabel)
 	statusBar.add(zoomLevelLabel)
+	
+	val viewModel = new SimulationViewModel()
+	
+	val drawableEnvironment = new DrawableContainer(null)
+	val drawableRobots = new DrawableContainer(null)
+	canvas.shapes += drawableEnvironment
+	canvas.shapes += drawableRobots
+	
+	// register changes on view model
+	viewModel.environment.attend(t => {
+		drawableEnvironment.drawable = t._1
+		canvas.repaint
+	})
+	
+	val robotsDrawables = new HashMap[Robot, DrawableContainer]()
+	
+	private def refrestRobotPosition(r : Robot){
+		// register listener
+		val l : Position => Unit = p => {
+			val transform = new AffineTransform
+			val bounds = r.definition.drawable.shape.getBounds()
+			transform.setToIdentity
+			transform.translate(p.x, -p.y)	// negative since the vertical axis is pointing downward
+			transform.rotate(-p.orientation)
+			transform.translate(- bounds.width/2, - bounds.height/2)
+			robotsDrawables(r).drawable = new TransformableDrawable(r.definition.drawable, transform)
+			
+			canvas.repaint()
+		}
 		
+		val s : Map[String, AnyVal] => Unit = m => {
+			println("[ sim ] sensors for '" + r.name + "' updated")
+			m.foreach(kvp => kvp._2 match {
+				case b : Boolean => {
+					println("\t" + kvp._1 + " : " + kvp._2)
+					val regex =  """^.*(\W|_)"""+ kvp._1 + "$"
+					DrawableUtils.extractNamedDrawables(robotsDrawables(r))
+						.filter(n => n._1 != null && n._1.matches(regex))
+						.foreach(d =>{ 
+							val c = if(b) GuiConstants.sensorDeactivated else GuiConstants.sensorActivated
+							DrawableUtils.setColor(d._2, c, c, null)
+						})
+				}
+			})
+		}
+		
+		if(!r.position.isAttending(l)){
+			r.position.attend(l)
+		}
+		
+		if(!r.sensors.isAttending(s)){
+			r.sensors.attend(s)
+		}
+		
+		l(r.position())
+		canvas.repaint
+	}
+	
+	viewModel.robots.attend(l => {
+		robotsDrawables.empty
+		// register robot changes
+		l.foreach(r => {
+			robotsDrawables(r) = new DrawableContainer(null)
+			refrestRobotPosition(r)
+		})
+		drawableRobots.drawable = new CompositeDrawableShape(robotsDrawables.map(_._2).toList:_*)
+		
+		canvas.selectableShapes.clear
+		canvas.selectableShapes ++= robotsDrawables.map(_._2)
+	})
+	
+	canvas.reactions += {
+      case e: CanvasSelectionDragged  => {
+      	var robot = robotsDrawables.filter(d => d._2 == e.selection).head._1
+      	var bounds = robot.definition.drawable.shape.getBounds()
+      	// move the robot to the new position
+      	robot.position.update(new Position(e.to.getX(), -e.to.getY(), robot.position().orientation))
+      	robot.initialPosition = robot.position()
+      }
+	}
+	
+	
 	// menu
 	menuBar = new MenuBar
     {
        contents += new Menu("File")
        {
-      contents += new MenuItem(new Action("New")
+      	contents += new MenuItem(new Action("New")
          {
           def apply
           {
-          	val viewModel = new SimulationViewModel()
-          	val window = new SimulationDefinitionWindow(viewModel)
-          	window.showDialog
+          	viewModel.robots.update(List.empty)
+          	viewModel.robotDefinitions.update(List.empty)
+          	viewModel.environment.update(null)
           }
          })
-			contents += new MenuItem(new Action("Load room...")
-         {
-          def apply
-          {
-          	// ToDo: Read saved simulation (from file)
-          	/*val chooser = new FileChooser
-          	val r = chooser.showOpenDialog(container)
-          	r match{
-          		case FileChooser.Result.Approve => {
-          				RoombaSimulatorApplication.loadRoom(chooser.selectedFile.getAbsolutePath())
-          			}
-          		case _ => {}
-          	}
-          	*/
-          }
-         })
-       }
+	      contents += new MenuItem(new Action("Open..."){
+	      	def apply
+	          {
+	          	// ToDo: Read saved simulation (from file)
+	          	val chooser = new FileChooser
+	          	val r = chooser.showOpenDialog(container)
+	          	r match{
+	          		case FileChooser.Result.Approve => {
+	          			viewModel.loadFromFile(chooser.selectedFile.getAbsolutePath())
+	          			}
+	          		case _ => {}
+	          	}
+	          }
+	      })
+	      contents += new MenuItem(new Action("Save..."){
+	      	def apply
+	          {
+	          	// ToDo: Read saved simulation (from file)
+	          	val chooser = new FileChooser
+	          	val r = chooser.showSaveDialog(container)
+	          	r match{
+	          		case FileChooser.Result.Approve => {
+	          			viewModel.saveToFile(chooser.selectedFile.getAbsolutePath())
+	          			}
+	          		case _ => {}
+	          	}
+	          }
+	      })
+	      contents += new Separator()
+	    }
+      contents += new Menu("Simulation"){
+      	contents += new MenuItem(new Action("Add robot..."){
+      		def apply
+      		{
+      			AddRobotWindow.visible = true
+      		}
+      	})
+      	contents += new MenuItem(new Action("Set environment...")
+	         {
+	          def apply
+	          {
+	          	// ToDo: Read saved simulation (from file)
+	          	val chooser = new FileChooser
+	          	val r = chooser.showOpenDialog(container)
+	          	r match{
+	          		case FileChooser.Result.Approve => {
+	          			viewModel.environment.update(SVGFactory.getEnvironment(chooser.selectedFile.getAbsolutePath()))
+	          			}
+	          		case _ => {}
+	          	}
+	          }
+	         })
+      } 
     }
   // toolbar
-	val toolbar = new Toolbar
+	val simulationToolbar = new Toolbar
 	// add buttons to the toolbar
 	val startButton = new ImageButton(getClass().getResource("play.png"))
+	
 	val pauseButton = new ImageButton(getClass().getResource("pause.png"))
 	val resetButton = new ImageButton(getClass().getResource("reset.png"))
-	toolbar.add(startButton)
-	toolbar.add(pauseButton)
-	toolbar.peer.addSeparator
-	toolbar.add(resetButton)
 	
-	ToolbarCommands.init
+	simulationToolbar.add(startButton)
+	simulationToolbar.add(pauseButton)
+	simulationToolbar.peer.addSeparator
+	simulationToolbar.add(resetButton)
+	SimulationToolbarCommands.init
 	
-	container.layout(toolbar) = BorderPanel.Position.North
+	val viewToolbar = new Toolbar
+	// display buttons
+	val selectButton = new ImageToggleButton(getClass().getResource("selector.png"))
+	selectButton.border = new EmptyBorder(new Insets(0,3,0,3))
+	viewToolbar.add(selectButton)
+	val expandButton = new ImageButton(getClass().getResource("vertical_arrow.png"))
+	expandButton.border = new EmptyBorder(new Insets(0,3,0,3))
+	viewToolbar.add(expandButton)
 	
+	ViewToolbarCommands.init
+	
+	val toolbarPanel = new FlowPanel(FlowPanel.Alignment.Left)(simulationToolbar, viewToolbar)
+	
+	container.layout(toolbarPanel) = BorderPanel.Position.North
+	
+	
+	
+	// add a toolbar on the right
+	val rightToolbar = new Toolbar
+	rightToolbar.orientation = SwingConstants.VERTICAL
+	// listen to the list of robots in order to add them to the list
+	viewModel.robots.attend(l => {
+		rightToolbar.clear
+		
+		if(! l.isEmpty){
+			l.foreach( r => rightToolbar.add(Action(r.name){
+				canvas.currentSelection = robotsDrawables(r)
+				canvas.repaint()
+			}
+		))
+		}
+	})
+	container.layout(rightToolbar) = BorderPanel.Position.East
 }

@@ -6,7 +6,7 @@ object RobotSimulatorConsole {
   def main(args: Array[String]): Unit = {
     // create a new simulation in an empty environment
     
-    var robot = new Robot("robot", List.empty)
+    var robot = new Robot("robot",null, null)
     robot.speed = 1000
     robot.radius = 1000
     robot.position.attend(p => {

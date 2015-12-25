@@ -56,6 +56,11 @@ abstract class Drawable(var id : String) extends Cloneable{
 	def copy() : Drawable
 }
 
+trait DrawableContent{
+	var drawable : Drawable
+}
+
+
 /**
  * Basic drawable shape. It's an extension of the standard Java Shape interface
  * @see java.awt.Shape
@@ -69,7 +74,9 @@ class DrawableShape(val shape : Shape) extends Drawable {
 	}
 	
 	override def copy() = {
-		new DrawableShape(shape)
+		var c = new DrawableShape(shape)
+		c.id = id
+		c
 	}
 }
 
@@ -85,7 +92,7 @@ object DrawableShapeCompanion {
  * @param drawable The drawable object to be transformed
  * @param transform The AffineTransform to apply to the Drawable.
  */
-class TransformableDrawable(var drawable : Drawable, var transform : AffineTransform) extends Drawable{
+class TransformableDrawable(var drawable : Drawable, var transform : AffineTransform) extends Drawable with DrawableContent{
 	override def draw(g : Graphics2D, t : AffineTransform){
 		val t2 = new AffineTransform(transform)
 		t2.preConcatenate(t)
@@ -102,7 +109,9 @@ class TransformableDrawable(var drawable : Drawable, var transform : AffineTrans
 	}
 	
 	override def copy() = {
-		new TransformableDrawable(drawable.copy(), transform.clone().asInstanceOf[AffineTransform])
+		var c = new TransformableDrawable(drawable.copy(), transform.clone().asInstanceOf[AffineTransform])
+		c.id = id
+		c
 	}
 }
 
@@ -132,7 +141,9 @@ class CompositeDrawableShape(_shapes : Drawable*) extends Drawable {
 	}
 	
 	override def copy() = {
-	 new CompositeDrawableShape(shapes.map(s => s.copy): _*)
+	 	var c = new CompositeDrawableShape(shapes.map(s => s.copy): _*)
+	 	c.id = id
+		c
 	}
 }
 
@@ -143,17 +154,17 @@ class CompositeDrawableShape(_shapes : Drawable*) extends Drawable {
  * @param color The border color
  * @param stroke The stroke that will be used
  */
-class ColoredDrawableShape(val drawableshape : DrawableShape, var fill : Color, var color : Color, var stroke : Stroke) extends Drawable{
+class ColoredDrawableShape(var drawable : Drawable, var fill : Color, var color : Color, var stroke : Stroke) extends Drawable with DrawableContent{
 	/**
 	 * @param shape The shape to draw
 	 */
-	def this(shape : DrawableShape) = this(shape,null,null,null)
+	def this(shape : Drawable) = this(shape,null,null,null)
 	/**
 	 * @param shape The shape to draw
 	 * @param fill The color used to fill the shape
 	 * @param color The border color
 	 */
-	def this(shape : DrawableShape, fill : Color, color : Color) = this(shape, fill, color, null)
+	def this(shape : Drawable, fill : Color, color : Color) = this(shape, fill, color, null)
 	
 	override def draw(g : Graphics2D, t : AffineTransform) = {
 		val c = g.getColor
@@ -164,7 +175,7 @@ class ColoredDrawableShape(val drawableshape : DrawableShape, var fill : Color, 
 		if(stroke != null){
 			g setStroke stroke
 		}
-		drawableshape.draw(g,t)
+		drawable.draw(g,t)
 		
 		g setColor c
 		g setStroke s
@@ -174,17 +185,19 @@ class ColoredDrawableShape(val drawableshape : DrawableShape, var fill : Color, 
 		if(fill != null){
 			g setColor fill
 		}
-		drawableshape.fill(g,t)
+		drawable.fill(g,t)
 		
 		g setColor c
 	}
 	
 	override def shape() : Shape = {
-		drawableshape.shape
+		drawable.shape
 	}
 	
 	override def copy() = {
-		new ColoredDrawableShape(drawableshape.copy(), fill, color)
+		var c = new ColoredDrawableShape(drawable.copy(), fill, color)
+		c.id = id
+		c
 	}
 }
 object ColoredDrawableShapeCompanion{
@@ -195,7 +208,7 @@ object ColoredDrawableShapeCompanion{
 /**
  * Defines a shape that won't be moved nor resized when drawn
  */
-class UntransformedDrawable(drawable : Drawable) extends Drawable {
+class UntransformedDrawable(var drawable : Drawable) extends Drawable with DrawableContent{
 	override def draw(g : Graphics2D, t : AffineTransform){
 		val t2 = new AffineTransform()
 		t2.setToIdentity()
@@ -212,7 +225,9 @@ class UntransformedDrawable(drawable : Drawable) extends Drawable {
 	}
 	
 	override def copy() = {
-	 new UntransformedDrawable(drawable)
+		var c = new UntransformedDrawable(drawable)
+		c.id = id
+		c
 	}
 }
 
@@ -258,6 +273,54 @@ class AnchoredDrawable(var verticalAnchor : VerticalAnchor, var horizontalAnchor
 	}
 	
 	override def copy() = {
-	 new AnchoredDrawable(verticalAnchor, horizontalAnchor, drawable.copy())
+		var c = new AnchoredDrawable(verticalAnchor, horizontalAnchor, drawable.copy())
+		c.id = id
+		c
+	}
+}
+
+/**
+ * This class is a wrapper for a Drawable (in order to be able to change its content without altering the reference)
+ * @param content The Drawable to wrap
+ */
+class DrawableContainer(var drawable : Drawable) extends Drawable with DrawableContent{
+	/**
+	 * Draw a transformed version of the object
+	 * @param g The Graphics2D object where the object will be drawn
+	 * @param t The AffineTransform to apply to the object before drawing it
+	 */
+	def draw(g : Graphics2D, t : AffineTransform){
+		if(drawable != null){
+			drawable.draw(g, t)
+		}
+	}
+	/**
+	 * Fill a transformed version of the object
+	 * @param g The Graphics2D object where the object will be filled
+	 * @param t The AffineTransform to apply to the object before filling it
+	 */
+	def fill(g : Graphics2D, t : AffineTransform){
+		if(drawable != null){
+			drawable.fill(g, t)
+		}
+	}
+	
+	/**
+	 * Getter for the Shape object underneeth the drawable
+	 */
+	def shape = {
+		if(drawable != null)
+			drawable.shape
+		else null
+	}
+	
+	def copy() = {
+		var c = new DrawableContainer(if(drawable != null)
+			drawable.copy()
+		else
+			null
+		)
+		c.id = id
+		c
 	}
 }
